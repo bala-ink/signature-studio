@@ -59,4 +59,4 @@ All drawing and exporting happens locally in your browser. No data, images, or s
 
 ## License
 
-Free to use, modify, and share.
+MIT © 2026 BALAJI D. See [LICENSE](LICENSE).
