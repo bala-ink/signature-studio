@@ -4,6 +4,10 @@ A single-file, fully offline signature pad for the browser. Draw with a trackpad
 
 No installs, no build step, no dependencies, no server.
 
+**Live demo:** <https://bala-ink.github.io/signature-studio/>
+
+**Source code:** <https://github.com/bala-ink/signature-studio>
+
 ## Features
 
 - Draw with a Mac trackpad, mouse, stylus, or touch screen
@@ -52,6 +56,21 @@ Open `index.html` in any modern browser (Safari, Chrome, Firefox, Edge). That's 
 - If a form requires JPEG, use the JPEG option so the background is solid white.
 - If a file-size limit is rejected, lower the JPEG quality a little and download again.
 - Keep the signature inside the canvas; anything drawn outside is clipped.
+
+## Feature requests & bug reports
+
+Have an idea for a feature, or found a bug? Please open an issue:
+
+<https://github.com/bala-ink/signature-studio/issues/new>
+
+Helpful details to include:
+
+- What you were trying to do
+- Your browser and device (e.g. Safari on macOS, Chrome on Windows)
+- The output size / aspect ratio you used (if relevant)
+- A screenshot, if possible
+
+Pull requests are welcome too.
 
 ## Privacy
 
