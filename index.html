@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Free signature pad: draw with your trackpad, mouse, or finger and export JPEG or PNG at the exact size and aspect ratio you need. Runs entirely in your browser.">
+<title>Signature Studio — draw & export a signature</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f2f3f5;
+    color: #1c1f24;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { width: 100%; max-width: 840px; }
+  h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { margin: 0 0 20px; color: #5b6472; font-size: 13px; line-height: 1.5; max-width: 70ch; }
+  .card {
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 18px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field .label { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #7b8492; }
+  .field input[type=number], .field select {
+    font: inherit; font-size: 14px; color: #1c1f24;
+    padding: 8px 10px; border: 1px solid #ccd2da; border-radius: 9px;
+    background: #fff; min-width: 110px;
+  }
+  .field input[type=number] { width: 96px; min-width: 0; }
+  .field input[type=number]:focus, .field select:focus { outline: 2px solid #b9d3ff; border-color: #1c6ef2; }
+  .stage {
+    position: relative;
+    background: #fff;
+    border: 1px solid #d6dbe2;
+    border-radius: 11px;
+    overflow: hidden;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; }
+  .placeholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 20px;
+    pointer-events: none; user-select: none; -webkit-user-select: none;
+    color: #c3c9d2; font-size: 15px; line-height: 1.5;
+  }
+  .placeholder.hidden { display: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; }
+  button {
+    font: inherit; font-size: 14px; padding: 9px 16px;
+    border-radius: 9px; border: 1px solid #ccd2da;
+    background: #fff; color: #1c1f24; cursor: pointer;
+    transition: background .12s ease, opacity .12s ease;
+  }
+  button:hover { background: #f6f7f9; }
+  button.primary { background: #1c6ef2; border-color: #1c6ef2; color: #fff; font-weight: 600; }
+  button.primary:hover { background: #155ecf; }
+  button:disabled { opacity: .4; cursor: default; }
+  button:disabled:hover { background: #fff; }
+  button.primary:disabled:hover { background: #1c6ef2; }
+  .spacer { flex: 1; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: 12px; color: #5b6472; font-variant-numeric: tabular-nums; }
+  .meta .warn { color: #c0392b; font-weight: 600; }
+  .slider { display: flex; align-items: center; gap: 8px; }
+  input[type=range] { width: 120px; accent-color: #1c6ef2; }
+  .val { font-size: 12px; color: #5b6472; min-width: 70px; font-variant-numeric: tabular-nums; }
+  .tip { margin-top: 18px; font-size: 12px; color: #7b8492; line-height: 1.7; }
+  kbd {
+    font: inherit; font-size: 11px; padding: 1px 5px;
+    border: 1px solid #d6dbe2; border-radius: 4px; background: #f6f7f9;
+  }
+  footer { margin-top: 22px; text-align: center; font-size: 12px; color: #9aa3b0; }
+  @media (max-width: 520px) {
+    body { padding: 18px 12px 40px; }
+    .field input[type=number] { width: 78px; }
+    button { flex: 1 1 auto; }
+    button.primary { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Signature Studio</h1>
+  <p class="sub">Draw a signature with your trackpad, mouse, stylus, or finger, then export it as JPEG or PNG at the exact size and aspect ratio your form requires. Everything runs locally in your browser — nothing is uploaded.</p>
+
+  <div class="card">
+    <div class="controls">
+      <div class="field">
+        <span class="label">Size preset</span>
+        <select id="preset">
+          <option value="600,200" selected>Signature 3:1 — 600 × 200</option>
+          <option value="450,150">Signature 3:1 — 450 × 150</option>
+          <option value="900,300">Signature 3:1 — 900 × 300</option>
+          <option value="600,300">Signature 2:1 — 600 × 300</option>
+          <option value="800,200">Signature 4:1 — 800 × 200</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="label">Width (px)</span>
+        <input id="w" type="number" min="50" max="4000" step="1" value="600">
+      </div>
+      <div class="field">
+        <span class="label">Height (px)</span>
+        <input id="h" type="number" min="50" max="4000" step="1" value="200">
+      </div>
+      <div class="field">
+        <span class="label">Pen thickness</span>
+        <div class="slider">
+          <input id="pen" type="range" min="0.6" max="2.5" step="0.1" value="1.2">
+          <span class="val" id="penVal">1.2%</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Format</span>
+        <select id="format">
+          <option value="jpeg" selected>JPEG — white background</option>
+          <option value="png">PNG — transparent background</option>
+        </select>
+      </div>
+      <div class="field" id="qualityField">
+        <span class="label">JPEG quality</span>
+        <div class="slider">
+          <input id="quality" type="range" min="0.5" max="0.95" step="0.01" value="0.9">
+          <span class="val" id="qualityVal">90%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <canvas id="pad" width="600" height="200"></canvas>
+      <div class="placeholder" id="placeholder">Sign here — click and drag with your trackpad</div>
+    </div>
+
+    <div class="row">
+      <button id="undo" disabled>Undo</button>
+      <button id="clear" disabled>Clear</button>
+      <span class="spacer"></span>
+      <button id="download" class="primary">Download</button>
+    </div>
+    <div class="meta">
+      <span id="dims">600 × 200 px (3:1)</span>
+      <span id="filesize">—</span>
+    </div>
+  </div>
+
+  <p class="tip">
+    Check your form's instructions for the required pixel size, aspect ratio, and maximum file size. Use <kbd>⌘</kbd> + <kbd>Z</kbd> (or <kbd>Ctrl</kbd> + <kbd>Z</kbd>) to undo. JPEG always includes a white background; PNG is transparent by default.
+  </p>
+
+  <footer>Runs 100% in your browser. Free to use and share.</footer>
+</main>
+
+<script>
+(function () {
+  const pad = document.getElementById('pad');
+  const ctx = pad.getContext('2d');
+  const placeholder = document.getElementById('placeholder');
+  const preset = document.getElementById('preset');
+  const wInput = document.getElementById('w');
+  const hInput = document.getElementById('h');
+  const penInput = document.getElementById('pen');
+  const penVal = document.getElementById('penVal');
+  const formatInput = document.getElementById('format');
+  const qualityField = document.getElementById('qualityField');
+  const qualityInput = document.getElementById('quality');
+  const qualityVal = document.getElementById('qualityVal');
+  const undoBtn = document.getElementById('undo');
+  const clearBtn = document.getElementById('clear');
+  const downloadBtn = document.getElementById('download');
+  const dimsEl = document.getElementById('dims');
+  const filesizeEl = document.getElementById('filesize');
+
+  const MIN = 50;
+  const MAX = 4000;
+
+  const state = {
+    strokes: [],      // [{ width: fractionOfHeight, points: [{x,y}] }] points normalized 0..1
+    current: null,
+    drawing: false,
+    penPct: parseFloat(penInput.value),
+    quality: parseFloat(qualityInput.value),
+    format: formatInput.value
+  };
+
+  const penWidthPx = () => (state.penPct / 100) * pad.height;
+
+  function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+
+  function updateDimsLabel() {
+    const g = gcd(pad.width, pad.height) || 1;
+    const ratio = (pad.width / g) + ':' + (pad.height / g);
+    const small = pad.width < 100 || pad.height < 50;
+    dimsEl.classList.toggle('warn', small);
+    dimsEl.textContent = pad.width + ' × ' + pad.height + ' px (' + ratio + ')' +
+      (small ? ' — very small, check your form' : '');
+  }
+
+  function drawStrokeOn(c, s, W, H) {
+    const pts = s.points;
+    c.strokeStyle = '#000';
+    c.fillStyle = '#000';
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.lineWidth = Math.max(0.5, s.width * H);
+
+    if (pts.length === 0) return;
+    if (pts.length === 1) {
+      c.beginPath();
+      c.arc(pts[0].x * W, pts[0].y * H, c.lineWidth / 2, 0, Math.PI * 2);
+      c.fill();
+      return;
+    }
+
+    const X = p => p.x * W;
+    const Y = p => p.y * H;
+
+    c.beginPath();
+    c.moveTo(X(pts[0]), Y(pts[0]));
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (X(pts[i]) + X(pts[i + 1])) / 2;
+      const my = (Y(pts[i]) + Y(pts[i + 1])) / 2;
+      c.quadraticCurveTo(X(pts[i]), Y(pts[i]), mx, my);
+    }
+    const last = pts[pts.length - 1];
+    c.lineTo(X(last), Y(last));
+    c.stroke();
+  }
+
+  function redraw() {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, pad.width, pad.height);
+    for (const s of state.strokes) drawStrokeOn(ctx, s, pad.width, pad.height);
+    const empty = state.strokes.length === 0;
+    placeholder.classList.toggle('hidden', !empty);
+    undoBtn.disabled = empty;
+    clearBtn.disabled = empty;
+  }
+
+  function renderExport() {
+    const c = document.createElement('canvas');
+    c.width = pad.width;
+    c.height = pad.height;
+    const x = c.getContext('2d');
+    if (state.format === 'jpeg') {
+      x.fillStyle = '#fff';
+      x.fillRect(0, 0, c.width, c.height);
+    }
+    for (const s of state.strokes) drawStrokeOn(x, s, c.width, c.height);
+    return c;
+  }
+
+  function scheduleSize() {
+    clearTimeout(scheduleSize._t);
+    scheduleSize._t = setTimeout(updateSize, 180);
+  }
+
+  function updateSize() {
+    const c = renderExport();
+    if (!c.toBlob) { filesizeEl.textContent = '—'; return; }
+    const type = state.format === 'png' ? 'image/png' : 'image/jpeg';
+    c.toBlob(function (blob) {
+      if (!blob) return;
+      const kb = blob.size / 1024;
+      const label = kb < 100 ? kb.toFixed(1) : Math.round(kb);
+      filesizeEl.textContent = '≈ ' + label + ' KB' + (state.format === 'jpeg' ? ' at ' + Math.round(state.quality * 100) + '% quality' : '');
+    }, type, state.quality);
+  }
+
+  function normalizedPoint(e) {
+    const r = pad.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width,
+      y: (e.clientY - r.top) / r.height
+    };
+  }
+
+  pad.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    if (pad.setPointerCapture) {
+      try { pad.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    state.drawing = true;
+    state.current = { width: state.penPct / 100, points: [normalizedPoint(e)] };
+    state.strokes.push(state.current);
+    redraw();
+  });
+
+  pad.addEventListener('pointermove', function (e) {
+    if (!state.drawing || !state.current) return;
+    e.preventDefault();
+    const coalesced = (e.getCoalescedEvents ? e.getCoalescedEvents() : []) || [];
+    const list = coalesced.length ? coalesced : [e];
+    for (const ev of list) state.current.points.push(normalizedPoint(ev));
+    redraw();
+  });
+
+  function endStroke() {
+    if (!state.drawing) return;
+    state.drawing = false;
+    state.current = null;
+    redraw();
+    scheduleSize();
+  }
+
+  pad.addEventListener('pointerup', endStroke);
+  pad.addEventListener('pointercancel', endStroke);
+  window.addEventListener('pointerup', function () { setTimeout(endStroke, 0); });
+  window.addEventListener('blur', endStroke);
+
+  function applySize(w, h) {
+    w = Math.max(MIN, Math.min(MAX, Math.round(w || MIN)));
+    h = Math.max(MIN, Math.min(MAX, Math.round(h || MIN)));
+    wInput.value = w;
+    hInput.value = h;
+    if (pad.width !== w) pad.width = w;
+    if (pad.height !== h) pad.height = h;
+    redraw();
+    updateDimsLabel();
+    updatePenLabel();
+    scheduleSize();
+  }
+
+  function updatePenLabel() {
+    penVal.textContent = state.penPct.toFixed(1) + '% · ' + penWidthPx().toFixed(1) + 'px';
+  }
+
+  preset.addEventListener('change', function () {
+    if (preset.value === 'custom') return;
+    const parts = preset.value.split(',');
+    applySize(parseInt(parts[0], 10), parseInt(parts[1], 10));
+  });
+
+  wInput.addEventListener('change', function () { applySize(parseInt(wInput.value, 10) || pad.width, pad.height); });
+  hInput.addEventListener('change', function () { applySize(pad.width, parseInt(hInput.value, 10) || pad.height); });
+
+  penInput.addEventListener('input', function () {
+    state.penPct = parseFloat(penInput.value);
+    updatePenLabel();
+    redraw();
+    scheduleSize();
+  });
+
+  formatInput.addEventListener('change', function () {
+    state.format = formatInput.value;
+    qualityField.style.display = state.format === 'jpeg' ? '' : 'none';
+    updateSize();
+  });
+
+  qualityInput.addEventListener('input', function () {
+    state.quality = parseFloat(qualityInput.value);
+    qualityVal.textContent = Math.round(state.quality * 100) + '%';
+    scheduleSize();
+  });
+
+  undoBtn.addEventListener('click', function () {
+    state.strokes.pop();
+    redraw();
+    scheduleSize();
+  });
+
+  clearBtn.addEventListener('click', function () {
+    state.strokes = [];
+    state.current = null;
+    redraw();
+    scheduleSize();
+  });
+
+  function filename() {
+    return 'signature-' + pad.width + 'x' + pad.height + (state.format === 'png' ? '.png' : '.jpg');
+  }
+
+  function saveBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  downloadBtn.addEventListener('click', function () {
+    if (state.strokes.length === 0) {
+      alert('Draw your signature first, then download.');
+      return;
+    }
+    const c = renderExport();
+    const type = state.format === 'png' ? 'image/png' : 'image/jpeg';
+    if (c.toBlob) {
+      c.toBlob(function (blob) {
+        if (blob) saveBlob(blob);
+        else saveDataURL(c, type);
+      }, type, state.quality);
+    } else {
+      saveDataURL(c, type);
+    }
+  });
+
+  function saveDataURL(c, type) {
+    const a = document.createElement('a');
+    a.href = c.toDataURL(type, state.quality);
+    a.download = filename();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  document.addEventListener('keydown', function (e) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === 'z') {
+      if (state.strokes.length) {
+        e.preventDefault();
+        state.strokes.pop();
+        redraw();
+        scheduleSize();
+      }
+    }
+  });
+
+  // init
+  applySize(600, 200);
+})();
+</script>
+</body>
+</html>
